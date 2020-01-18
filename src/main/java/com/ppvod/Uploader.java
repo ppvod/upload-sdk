@@ -139,7 +139,7 @@ public class Uploader {
                     obj.put("uniqueFileName", sha1);
                     obj.put("chunk", curIdx + "");
 
-                    mUtil.postInputStream(bin, remoteUrl, obj, file.getName());
+                    mUtil.postInputStream(bin, endPos - startPos,remoteUrl,   obj, file.getName());
                     bin.close();
                     fin.close();
                 } catch (Exception e) {

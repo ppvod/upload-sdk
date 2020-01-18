@@ -7,7 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 
 import org.apache.commons.codec.digest.DigestUtils;
-
+    
 /**
  * Hello world!
  *
@@ -22,9 +22,9 @@ public class App {
         Thread.sleep(3000);
         System.out.println(future.getStatue());
 
-        // 秒传
-        future = up.upload("d:\\wfsroot\\somebody.mp4");
-        Thread.sleep(3000);
-        System.out.println(future.getStatue());
+        // // 秒传
+        // future = up.upload("d:\\wfsroot\\somebody.mp4");
+        // Thread.sleep(3000);
+        // System.out.println(future.getStatue());
     }
 }

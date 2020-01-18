@@ -1,124 +1,125 @@
 package com.ppvod;
 
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.MultipartBuilder;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.Response;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Iterator;
 import java.util.Set;
-
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.ResponseHandler;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.InputStreamEntity;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.entity.mime.HttpMultipartMode;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
+import okio.BufferedSink;
+import okio.Okio;
+import okio.Source;
+
 public class HttpUtil {
-    private static final PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager();
-    static {
+    private static final String TAG = "httputil";
+    private OkHttpClient client;
 
-        // 设置最大连接数
-        connManager.setMaxTotal(5);
-        // 设置每个连接的路由数
-        connManager.setDefaultMaxPerRoute(20);
-
+    public HttpUtil() {
+        this.client = new OkHttpClient();
     }
 
-    public void postJson(JSONObject logObj, String url) {
-        try {
-
-            CloseableHttpClient httpclient = HttpClients.custom().setConnectionManager(connManager).build();
-
-            HttpPost httpPost = new HttpPost(url);
-            httpPost.addHeader("Content-Type", "application/json");
-
-            // 解决中文乱码问题
-            StringEntity stringEntity = new StringEntity(logObj.toString(), "UTF-8");
-            // stringEntity.setContentEncoding("UTF-8");
-            // stringEntity.setContentType("application/json");
-
-            httpPost.setEntity(stringEntity);
-            ResponseHandler<String> responseHandler = new ResponseHandler<String>() {
-                public String handleResponse(final HttpResponse response) throws ClientProtocolException, IOException {//
-                    byte[] a = new byte[1024];
-                    int r = response.getEntity().getContent().read(a);
-                    return null;
-                }
-            };
-            httpclient.execute(httpPost, responseHandler);
-
-        } catch (Exception e) {
-            // System.out.println(e);
-        } finally {
-
-        }
-    }
-
-    public String request(String url) throws ClientProtocolException, IOException {
+    public String request(String surl) throws IOException {
+        URL url = new URL(surl);
         String result = "";
-
-        CloseableHttpClient httpclient = HttpClients.custom().setConnectionManager(connManager).build();
-
-        HttpGet httpGet = new HttpGet(url);
-
-        ResponseHandler<String> responseHandler = new ResponseHandler<String>() {
-            public String handleResponse(final HttpResponse response) throws ClientProtocolException, IOException {//
-                byte[] a = new byte[1024];
-                int r = response.getEntity().getContent().read(a);
-                return new String(a, 0, r);
-            }
-        };
-        Log.info("请求" + url);
-        result = httpclient.execute(httpGet, responseHandler);
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        try {
+            InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+            byte[] data = new byte[1024];
+            int r = in.read(data);
+            result = new String(data, 0, r);
+        } finally {
+            urlConnection.disconnect();
+        }
 
         return result;
     }
 
-    public JSONObject requestForJSON(String url) throws ClientProtocolException, IOException {
+    public JSONObject requestForJSON(String url) throws IOException {
         String r = request(url);
         if (r == null)
             return null;
         JSONTokener tokener = new JSONTokener(r);
-        return new JSONObject(tokener);
+        JSONObject result = null;
+        try {
+            result = new JSONObject(tokener);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return result;
+
     }
 
-    public String postInputStream(InputStream in, String url, JSONObject fields, String filename)
-            throws ClientProtocolException, IOException {
-        String result = "";
+    public String postInputStream(final InputStream in, final int length, String url, JSONObject fields,
+            String filename) throws IOException {
+        System.out.println("上传数据" + length + url + filename);
+        RequestBody mbody = new RequestBody() {
+            @Override
+            public MediaType contentType() {
+                return null;
+            }
 
-        CloseableHttpClient httpclient = HttpClients.custom().setConnectionManager(connManager).build();
+            @Override
+            public long contentLength() {
+                return length;
+            }
 
-        HttpPost httpPost = new HttpPost(url);
-        MultipartEntityBuilder builder = MultipartEntityBuilder.create();
-
-        builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
-        Iterator<String> itera = fields.keySet().iterator();
-        while (itera.hasNext()) {
-            String key = itera.next();
-            builder.addTextBody(key, fields.getString(key));
-        }
-        builder.addBinaryBody("filename", in, ContentType.create("multipart/form-data"), filename);
-
-        HttpEntity entity = builder.build();
-        httpPost.setEntity(entity);
-        ResponseHandler<String> responseHandler = new ResponseHandler<String>() {
-            public String handleResponse(final HttpResponse response) throws ClientProtocolException, IOException {//
-                byte[] a = new byte[1024];
-                int r = response.getEntity().getContent().read(a);
-                return new String(a, 0, r);
+            @Override
+            public void writeTo(BufferedSink sink) throws IOException {
+                Source source = null;
+                try {
+                    source = Okio.source(in);
+                    sink.writeAll(source);
+                } catch (Exception e) {
+                    if (source != null) {
+                        try {
+                            source.close();
+                        } catch (RuntimeException rethrown) {
+                            throw rethrown;
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
             }
         };
-        result = httpclient.execute(httpPost, responseHandler);
-        Log.debug("返回结果" + result);
+
+
+        MultipartBuilder builder = new MultipartBuilder();
+        builder.type(MultipartBuilder.FORM);
+
+        Iterator<String> itera = fields.keys();
+        while (itera.hasNext()) {
+            String key = itera.next();
+            try {
+                System.out.println(key +  fields.getString(key));
+                builder.addFormDataPart(key, fields.getString(key));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        builder.addFormDataPart("filename", filename, mbody);
+      
+        RequestBody body = builder.build();
+        Request request = new Request.Builder().url(url).post(body).build();
+        Response response = this.client.newCall(request).execute();
+        String result = response.body().toString();
+        Log.debug("返回结果2" + result);
 
         return result;
     }
