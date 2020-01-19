@@ -43,7 +43,7 @@ public class HttpUtil {
             InputStream in = new BufferedInputStream(urlConnection.getInputStream());
             byte[] data = new byte[1024];
             int r = in.read(data);
-            result = new String(data, 0, r);
+            result = new String(data, 0, r, "utf-8");
         } finally {
             urlConnection.disconnect();
         }
@@ -67,8 +67,8 @@ public class HttpUtil {
     }
 
     public String postInputStream(final InputStream in, final int length, String url, JSONObject fields,
-            String filename) throws IOException {
-        System.out.println("上传数据" + length + url + filename);
+                                  String filename) throws IOException {
+        System.out.println("上传数据" + length + ":" + "" + url + ":" + filename);
         RequestBody mbody = new RequestBody() {
             @Override
             public MediaType contentType() {
@@ -85,7 +85,8 @@ public class HttpUtil {
                 Source source = null;
                 try {
                     source = Okio.source(in);
-                    sink.writeAll(source);
+                    // sink.writeAll(source);
+                    sink.write(source, length);
                 } catch (Exception e) {
                     if (source != null) {
                         try {
@@ -114,12 +115,12 @@ public class HttpUtil {
             }
         }
         builder.addFormDataPart("filename", filename, mbody);
-      
+
         RequestBody body = builder.build();
         Request request = new Request.Builder().url(url).post(body).build();
         Response response = this.client.newCall(request).execute();
-        String result = response.body().toString();
-        Log.debug("返回结果2" + result);
+        String result = response.body().string();
+        Log.debug("postInputStream返回结果:" + result);
 
         return result;
     }
