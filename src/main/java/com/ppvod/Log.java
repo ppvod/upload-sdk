@@ -1,19 +1,30 @@
 package com.ppvod;
 
+import org.slf4j.LoggerFactory;
+
+import org.slf4j.Logger;
+
 public class Log {
-    private static final String TAG = "LOG";
-    public static void info(String s) {
+    private Logger logger;
 
-        System.out.println( s);
+    public Log(String name) {
+        this.logger = LoggerFactory.getLogger(name);
     }
 
-    public static void error(String s) {
-
-        System.out.println( s);
+    public static Log getLogger(String logger) {
+        return new Log(logger);
     }
 
-    public static void debug(String s) {
+    public void info(String s) {
+        logger.info(s);
+    }
 
-        System.out.println( s);
+    public void error(String s) {
+        logger.error(s);
+    }
+
+    public void debug(String s) {
+
+        logger.debug(s);
     }
 }

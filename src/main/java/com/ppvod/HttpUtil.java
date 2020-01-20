@@ -23,13 +23,40 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
+import okio.Buffer;
 import okio.BufferedSink;
+import okio.ForwardingSink;
 import okio.Okio;
+import okio.Sink;
 import okio.Source;
 
 public class HttpUtil {
-    private static final String TAG = "httputil";
+    private Log logger = Log.getLogger("HttpUtil");
     private OkHttpClient client;
+
+    public interface ProgressListener {
+        // 已发送
+        void writed(long bytes);
+    }
+
+    protected class CountingSink extends ForwardingSink {
+
+        private long bytesWritten = 0;
+        private ProgressListener listener;
+
+        public CountingSink(Sink delegate, ProgressListener progressListener) {
+            super(delegate);
+            this.listener = progressListener;
+        }
+
+        @Override
+        public void write(Buffer source, long byteCount) throws IOException {
+            super.write(source, byteCount);
+
+            bytesWritten += byteCount;
+            listener.writed(byteCount);
+        }
+    }
 
     public HttpUtil() {
         this.client = new OkHttpClient();
@@ -67,8 +94,8 @@ public class HttpUtil {
     }
 
     public String postInputStream(final InputStream in, final int length, String url, JSONObject fields,
-                                  String filename) throws IOException {
-        System.out.println("上传数据" + length + ":" + "" + url + ":" + filename);
+            String filename, final ProgressListener progressListener) throws IOException {
+        logger.debug("上传数据长度:" + length + " URL:" + "" + url + " 文件名:" + filename);
         RequestBody mbody = new RequestBody() {
             @Override
             public MediaType contentType() {
@@ -85,9 +112,21 @@ public class HttpUtil {
                 Source source = null;
                 try {
                     source = Okio.source(in);
-                    // sink.writeAll(source);
-                    sink.write(source, length);
+                    if (progressListener == null) {
+
+                        sink.write(source, length);
+                    } else {
+
+                        CountingSink countingSink = new CountingSink(sink, progressListener);
+                        BufferedSink bufferedSink = Okio.buffer(countingSink);
+
+                        bufferedSink.write(source, length);
+                        bufferedSink.flush();
+
+                    }
                 } catch (Exception e) {
+                    logger.error(e.toString());
+                } finally {
                     if (source != null) {
                         try {
                             source.close();
@@ -96,10 +135,10 @@ public class HttpUtil {
                         } catch (Exception ignored) {
                         }
                     }
+
                 }
             }
         };
-
 
         MultipartBuilder builder = new MultipartBuilder();
         builder.type(MultipartBuilder.FORM);
@@ -108,7 +147,7 @@ public class HttpUtil {
         while (itera.hasNext()) {
             String key = itera.next();
             try {
-                System.out.println(key +  fields.getString(key));
+                logger.debug( "form 字段 " + key + ":" + fields.getString(key));
                 builder.addFormDataPart(key, fields.getString(key));
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -119,8 +158,9 @@ public class HttpUtil {
         RequestBody body = builder.build();
         Request request = new Request.Builder().url(url).post(body).build();
         Response response = this.client.newCall(request).execute();
+
         String result = response.body().string();
-        Log.debug("postInputStream返回结果:" + result);
+        logger.debug("postInputStream返回结果:" + result);
 
         return result;
     }

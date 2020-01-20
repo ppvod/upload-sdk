@@ -10,6 +10,12 @@ public interface JobFuture {
     // 取消下载任务
     public void cancel();
 
-    public int getStatue();
+    public int getState();
+
+    //进度  1-100
+    public int progress();
+
+    public void waitToFinish();
+    
 
 }
