@@ -13,12 +13,12 @@ JobFuture future = up.upload("d:\\wfsroot\\somebody.mp4");
 
 //这个上传时立即返回的,如果中途想取消上传,可以执行
 //future.cancel();
-//通过轮训 future.getStatue(),查询任务的状态
+//通过轮训 future.getState(),查询任务的状态
 Thread.sleep(3000);
-System.out.println(future.getStatue());
+System.out.println(future.getState());
 
 // 第二次上传会有秒传效果
 future = up.upload("d:\\wfsroot\\somebody.mp4");
 Thread.sleep(3000);
-System.out.println(future.getStatue());
+System.out.println(future.getState());
 ```
