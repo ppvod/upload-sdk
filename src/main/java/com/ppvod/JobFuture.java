@@ -12,6 +12,8 @@ public interface JobFuture {
 
     public int getState();
 
+    public String getResult();
+
     //进度  1-100
     public int progress();
 

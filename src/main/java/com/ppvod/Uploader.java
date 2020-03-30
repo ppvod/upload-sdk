@@ -57,14 +57,14 @@ public class Uploader {
 
     /**
      * @param remoteUrl 远程服务器url
-     * @param key       api秘钥
+     * @param key       上传秘钥
      * @param chunkSize 分片尺寸
      */
-    public Uploader(String remoteUrl, String key, int chunkSize) {
+    public Uploader(String remoteUrl, String uploadKey, int chunkSize) {
         this.chunkSize = chunkSize;
         this.mUtil = new HttpUtil();
         this.remoteUrl = remoteUrl;
-        this.apikey = key;
+        this.apikey = uploadKey;
     }
 
     public JobFuture upload(String path) {
@@ -80,6 +80,12 @@ public class Uploader {
         private String path;
         private long mTotalWrite;
         private long mTotalLength;
+
+        private String mResult;
+
+        public String getResult(){
+            return mResult;
+        }
 
         public void cancel() {
             if (mThrd != null) {
@@ -158,13 +164,14 @@ public class Uploader {
                 root = mUtil.requestForJSON(remoteUrl + "?status=md5Check&uploadkey=" + apikey + "&md5=" + sha1);
                 code = root.getInt("ifExist");
                 if (code == 1) {
+                    mResult = root.toString();
                     mStatus = JobFuture.STATUS_FINISH_BIU;
                     mTotalWrite = mTotalLength;
                     logger.info("秒传完成" + path);
                     return;
                 }
             } catch (Exception e1) {
-                // e1.printStackTrace();
+                e1.printStackTrace();
                 mStatus = STATUS_ERROR;
                 return;
             }
@@ -264,6 +271,7 @@ public class Uploader {
                 result = mUtil.request(remoteUrl + "?status=chunksMerge&chunks=" + chunks + "&md5=" + md5 + "&ext="
                         + extname + "&uniqueFileName=" + uniqueFileName + "&fileoldname=" + basename);
                 System.out.println("合并分片完成" + result);
+                mResult = result;
                 mStatus = STATUS_FINISH_GENERAL;
             } catch (Exception e) {
                 System.out.println("合并分片失败!" + result);
